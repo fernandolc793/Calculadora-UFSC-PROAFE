@@ -1,0 +1,552 @@
+
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Renda Familiar UFSC</title>
+    <!-- Inclui Tailwind CSS para estilização -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inclui Font Awesome para ícones (para os tooltips) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Define a fonte Inter para todo o corpo do documento */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Cor de fundo suave */
+        }
+        /* Estilos para as mensagens de resultado */
+        .result-message {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            text-align: center;
+            margin-top: 1.5rem;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        .result-deferred {
+            background-color: #d1fae5; /* Verde claro */
+            color: #065f46; /* Verde escuro */
+        }
+        .result-undeferred {
+            background-color: #fee2e2; /* Vermelho claro */
+            color: #991b1b; /* Vermelho escuro */
+        }
+        /* Estilo para inputs de número para remover setas */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        /* Estilo para input inválido */
+        input:invalid {
+            border-color: #ef4444; /* Vermelho */
+            box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+        }
+        /* Estilos para o tooltip */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: help;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            /* Aumentado para acomodar mensagens mais longas */
+            width: 400px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px 0;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%; /* Posição acima do elemento */
+            left: 50%;
+            margin-left: -200px; /* Metade da nova largura para centralizar */
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-weight: normal;
+            font-size: 0.75rem;
+        }
+        .tooltip .tooltiptext::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #333 transparent transparent transparent;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        /* Estilos para as entradas de renda e fonte dentro das células */
+        .income-entry-container, .source-entry-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem; /* Espaçamento entre os blocos de entrada */
+            margin-bottom: 0.5rem;
+        }
+        .income-entry, .source-entry {
+            display: flex;
+            flex-direction: column; /* Empilha os inputs verticalmente */
+            gap: 0.25rem; /* Espaçamento entre os inputs de valor e fonte */
+            padding: 0.75rem; /* Preenchimento interno do bloco de entrada */
+            border: 1px solid #d1d5db; /* Borda cinza clara */
+            border-radius: 0.5rem; /* Cantos arredondados para o bloco */
+            background-color: #f9fafb; /* Fundo ligeiramente diferente para cada entrada */
+            position: relative; /* Para posicionar o botão de remover */
+        }
+        .income-entry input, .source-entry input {
+            width: 100%; /* Garante que os inputs ocupem a largura total dentro do seu container */
+        }
+        .remove-entry-button { /* Botão de remover genérico para renda e fonte */
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: none;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            font-size: 1rem; /* Ajusta o tamanho do ícone */
+            line-height: 1;
+        }
+        .remove-entry-button i {
+            color: #ef4444; /* Cor vermelha para o ícone */
+        }
+        .remove-entry-button:hover i {
+            color: #b91c1c; /* Vermelho mais escuro ao passar o mouse */
+        }
+        .add-entry-button { /* Botão de adicionar genérico */
+            background-color: #10b981; /* Verde esmeralda */
+            color: white;
+            padding: 0.3rem 0.6rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            margin-top: 0.5rem;
+            transition: background-color 0.3s ease;
+        }
+        .add-entry-button:hover {
+            background-color: #059669;
+        }
+        /* Custom widths for table columns to increase visible space for inputs */
+        .col-parentesco {
+            min-width: 120px; /* Largura ajustada */
+        }
+        .col-fonte-renda {
+            min-width: 200px; /* Largura ajustada */
+        }
+        .col-renda-mes {
+            min-width: 160px; /* Largura ajustada */
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-6 md:p-8 flex items-center justify-center min-h-screen">
+    <div class="bg-white p-6 sm:p-8 rounded-xl shadow-lg w-full max-w-4xl">
+        <h1 class="text-2xl sm:text-3xl font-bold text-center text-gray-800 mb-4">Simulador de Renda Familiar UFSC</h1>
+        <!-- Mensagem introdutória atualizada -->
+        <p class="text-center text-gray-600 mb-6">
+            Este simulador é uma ferramenta de apoio para candidatos que buscam vagas destinadas às cotas de baixa renda. Para evitar candidaturas inadequadas e indeferimentos, utilize-o para simular a composição familiar e a renda, verificando sua elegibilidade antes da inscrição. É fundamental consultar o edital do seu processo seletivo e a documentação oficial para confirmar todos os critérios e regras.
+        </p>
+
+        <!-- Campo para Salário Mínimo Dinâmico -->
+        <div class="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <label for="salarioMinimoInput" class="block text-blue-800 text-lg font-semibold mb-2">
+                Defina o Salário Mínimo de Referência:
+                <span class="tooltip text-gray-500 text-sm ml-1">
+                    <i class="fas fa-info-circle"></i>
+                    <span class="tooltiptext">Verifique no edital do seu processo seletivo qual é o valor do salário mínimo a ser considerado para os critérios de renda.</span>
+                </span>
+            </label>
+            <input type="number" id="salarioMinimoInput" min="0" step="0.01" value=""
+                   class="w-full p-3 border border-blue-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-gray-800 text-lg"
+                   aria-label="Salário Mínimo de Referência" required />
+        </div>
+
+        <!-- Tabela de Composição Familiar -->
+        <div class="overflow-x-auto mb-6">
+            <table class="w-full text-sm text-left text-gray-700 rounded-lg overflow-hidden">
+                <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                    <tr>
+                        <th scope="col" class="py-3 px-3 sm:px-6 rounded-tl-lg col-parentesco">Parentesco</th>
+                        <th scope="col" class="py-3 px-3 sm:px-6 col-fonte-renda">
+                            Fonte(s) da Renda
+                            <span class="tooltip text-gray-500 text-sm ml-1">
+                                <i class="fas fa-info-circle"></i>
+                                <span class="tooltiptext">Informe a origem de cada renda do familiar. Clique 'Adicionar Fonte' para incluir múltiplas fontes se houver.</span>
+                            </span>
+                        </th>
+                        <th scope="col" class="py-3 px-3 sm:px-6 col-renda-mes">
+                            Renda Mês 1 (R$)
+                            <span class="tooltip text-gray-500 text-sm ml-1">
+                                <i class="fas fa-info-circle"></i>
+                                <span class="tooltiptext">Informe o valor bruto de cada renda do familiar para o primeiro mês de referência. Clique 'Adicionar Renda' para incluir múltiplas entradas.</span>
+                            </span>
+                        </th>
+                        <th scope="col" class="py-3 px-3 sm:px-6 col-renda-mes">
+                            Renda Mês 2 (R$)
+                            <span class="tooltip text-gray-500 text-sm ml-1">
+                                <i class="fas fa-info-circle"></i>
+                                <span class="tooltiptext">Informe o valor bruto de cada renda do familiar para o segundo mês de referência. Clique 'Adicionar Renda' para incluir múltiplas entradas.</span>
+                            </span>
+                        </th>
+                        <th scope="col" class="py-3 px-3 sm:px-6 col-renda-mes">
+                            Renda Mês 3 (R$)
+                            <span class="tooltip text-gray-500 text-sm ml-1">
+                                <i class="fas fa-info-circle"></i>
+                                <span class="tooltiptext">Informe o valor bruto de cada renda do familiar para o terceiro mês de referência. Clique 'Adicionar Renda' para incluir múltiplas entradas.</span>
+                            </span>
+                        </th>
+                        <th scope="col" class="py-3 px-3 sm:px-6 rounded-tr-lg">Média de Renda (R$)</th>
+                        <th scope="col" class="py-3 px-3 sm:px-6"></th> <!-- Coluna para o botão de remover -->
+                    </tr>
+                </thead>
+                <tbody id="familyMembersTableBody">
+                    <!-- Linhas de membros da família serão adicionadas aqui via JavaScript -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Botões de Ação -->
+        <div class="flex flex-col sm:flex-row gap-4 mb-6">
+            <button id="addMemberButton" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out shadow-md hover:shadow-lg">
+                Adicionar Membro da Família
+            </button>
+            <button id="resetButton" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out shadow-md hover:shadow-lg">
+                Reiniciar Simulação
+            </button>
+        </div>
+
+        <!-- Seção de Resultados -->
+        <div class="mt-8 p-4 bg-gray-50 rounded-lg shadow-inner">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4 text-center">Resumo da Simulação</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                <div class="p-3 bg-white rounded-lg shadow-sm">
+                    <p class="text-gray-600 text-sm">Total de Membros:</p>
+                    <p id="totalMembers" class="text-lg font-bold text-gray-900">0</p>
+                </div>
+                <div class="p-3 bg-white rounded-lg shadow-sm">
+                    <p class="text-gray-600 text-sm">Renda Familiar Total (Média):</p>
+                    <p id="totalFamilyIncome" class="text-lg font-bold text-gray-900">R$ 0,00</p>
+                </div>
+                <div class="p-3 bg-white rounded-lg shadow-sm">
+                    <p class="text-gray-600 text-sm">Renda Per Capita (Média):</p>
+                    <p id="perCapitaIncome" class="text-lg font-bold text-gray-900">R$ 0,00</p>
+                </div>
+            </div>
+
+            <!-- Mensagem de Resultado (Deferido/Indeferido) -->
+            <div id="resultMessageBox" class="result-message mt-6 hidden">
+                <p id="resultMessageText"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Referências aos elementos do DOM
+        const salarioMinimoInput = document.getElementById('salarioMinimoInput');
+        const familyMembersTableBody = document.getElementById('familyMembersTableBody');
+        const addMemberButton = document.getElementById('addMemberButton');
+        const resetButton = document.getElementById('resetButton');
+        const totalMembersSpan = document.getElementById('totalMembers');
+        const totalFamilyIncomeSpan = document.getElementById('totalFamilyIncome');
+        const perCapitaIncomeSpan = document.getElementById('perCapitaIncome');
+        const resultMessageBox = document.getElementById('resultMessageBox');
+        const resultMessageText = document.getElementById('resultMessageText');
+
+        let memberCount = 0; // Contador para o número de membros da família
+
+        /**
+         * Adiciona uma nova entrada de renda (apenas valor) para um mês específico.
+         * @param {HTMLElement} monthCell - A célula da tabela (<td>) do mês onde a renda será adicionada.
+         */
+        function addIncomeEntry(monthCell) {
+            const incomeEntryDiv = document.createElement('div');
+            incomeEntryDiv.classList.add('income-entry');
+            incomeEntryDiv.innerHTML = `
+                <input type="number" min="0" step="0.01" value="0" placeholder="Valor (R$)" class="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-gray-800 income-input" required />
+                <button type="button" class="remove-entry-button" title="Remover esta renda">
+                    <i class="fas fa-times-circle"></i>
+                </button>
+            `;
+            monthCell.querySelector('.income-entry-container').appendChild(incomeEntryDiv);
+
+            // Adiciona listener para recalcular ao mudar o valor da renda
+            incomeEntryDiv.querySelector('.income-input').addEventListener('input', calculateTotal);
+            // Adiciona listener para remover esta entrada de renda específica
+            incomeEntryDiv.querySelector('.remove-entry-button').addEventListener('click', () => {
+                incomeEntryDiv.remove();
+                calculateTotal();
+            });
+        }
+
+        /**
+         * Adiciona uma nova entrada de fonte de renda para um membro da família.
+         * @param {HTMLElement} sourceCell - A célula da tabela (<td>) da fonte de renda onde a entrada será adicionada.
+         */
+        function addSourceEntry(sourceCell) {
+            const sourceEntryDiv = document.createElement('div');
+            sourceEntryDiv.classList.add('source-entry');
+            sourceEntryDiv.innerHTML = `
+                <input type="text" placeholder="Ex: Salário, Uber" class="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-gray-800 income-source-input" />
+                <button type="button" class="remove-entry-button" title="Remover esta fonte">
+                    <i class="fas fa-times-circle"></i>
+                </button>
+            `;
+            sourceCell.querySelector('.source-entry-container').appendChild(sourceEntryDiv);
+
+            // Não é necessário recalcular ao mudar a fonte, apenas o valor da renda
+            // Adiciona listener para remover esta entrada de fonte específica
+            sourceEntryDiv.querySelector('.remove-entry-button').addEventListener('click', () => {
+                sourceEntryDiv.remove();
+            });
+        }
+
+        /**
+         * Adiciona uma nova linha à tabela para um membro da família.
+         */
+        function addFamilyMemberRow() {
+            memberCount++; // Incrementa o contador de membros
+
+            const row = document.createElement('tr');
+            row.id = `memberRow-${memberCount}`; // Define um ID único para a linha
+            row.classList.add('bg-white', 'border-b', 'hover:bg-gray-50');
+
+            row.innerHTML = `
+                <td class="py-3 px-3 sm:px-6 col-parentesco">
+                    <input type="text" placeholder="Ex: Pai" class="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-gray-800" />
+                </td>
+                <td class="py-3 px-3 sm:px-6 col-fonte-renda">
+                    <div class="source-entry-container" id="source-container-${memberCount}"></div>
+                    <button type="button" class="add-entry-button" data-type="source">Adicionar + fontes</button>
+                </td>
+                <td class="py-3 px-3 sm:px-6 col-renda-mes">
+                    <div class="income-entry-container" id="month1-container-${memberCount}"></div>
+                    <button type="button" class="add-entry-button" data-type="income">Adicionar Renda</button>
+                </td>
+                <td class="py-3 px-3 sm:px-6 col-renda-mes">
+                    <div class="income-entry-container" id="month2-container-${memberCount}"></div>
+                    <button type="button" class="add-entry-button" data-type="income">Adicionar Renda</button>
+                </td>
+                <td class="py-3 px-3 sm:px-6 col-renda-mes">
+                    <div class="income-entry-container" id="month3-container-${memberCount}"></div>
+                    <button type="button" class="add-entry-button" data-type="income">Adicionar Renda</button>
+                </td>
+                <td class="py-3 px-3 sm:px-6 font-medium text-gray-900 whitespace-nowrap average-income">
+                    R$ 0,00
+                </td>
+                <td class="py-3 px-3 sm:px-6 text-right">
+                    <button type="button" class="text-red-600 hover:text-red-800 font-medium remove-member-button">Remover</button>
+                </td>
+            `;
+
+            familyMembersTableBody.appendChild(row);
+
+            // Adiciona uma entrada inicial para a fonte de renda
+            addSourceEntry(row.querySelector('td:nth-child(2)')); // Coluna da Fonte da Renda
+
+            // Adiciona uma entrada de renda inicial para cada mês
+            addIncomeEntry(row.querySelector('td:nth-child(3)')); // Mês 1
+            addIncomeEntry(row.querySelector('td:nth-child(4)')); // Mês 2
+            addIncomeEntry(row.querySelector('td:nth-child(5)')); // Mês 3
+
+
+            // Adiciona listeners para os botões "Adicionar Renda" e "Adicionar Fonte"
+            row.querySelectorAll('.add-entry-button').forEach(button => {
+                button.addEventListener('click', () => {
+                    const cell = button.closest('td');
+                    const type = button.dataset.type;
+                    if (type === 'income') {
+                        addIncomeEntry(cell);
+                    } else if (type === 'source') {
+                        addSourceEntry(cell);
+                    }
+                });
+            });
+
+            // Adiciona listener para o botão de remover membro
+            const removeButton = row.querySelector('.remove-member-button');
+            removeButton.addEventListener('click', () => {
+                row.remove(); // Remove a linha da tabela
+                calculateTotal(); // Recalcula os totais após a remoção
+            });
+
+            calculateTotal(); // Recalcula os totais após adicionar uma nova linha
+        }
+
+        /**
+         * Calcula a média de renda para cada membro, a renda familiar total e a renda per capita.
+         */
+        function calculateTotal() {
+            let totalFamilyIncome = 0;
+            const rows = familyMembersTableBody.querySelectorAll('tr');
+            const currentMemberCount = rows.length;
+            let currentSalarioMinimo = parseFloat(salarioMinimoInput.value); // Pega o valor do input
+
+            // Validação do Salário Mínimo de Referência
+            if (isNaN(currentSalarioMinimo) || currentSalarioMinimo <= 0) {
+                salarioMinimoInput.classList.add('border-red-500');
+                totalMembersSpan.textContent = currentMemberCount;
+                totalFamilyIncomeSpan.textContent = formatCurrency(0);
+                perCapitaIncomeSpan.textContent = formatCurrency(0);
+                resultMessageBox.classList.remove('hidden', 'result-deferred', 'result-undeferred');
+                resultMessageBox.classList.add('result-undeferred'); // Usa vermelho para mensagem de erro
+                resultMessageText.innerHTML = `
+                    <p class="text-xl">ATENÇÃO!</p>
+                    <p class="mt-2 text-sm">Por favor, informe um valor válido e positivo para o Salário Mínimo de Referência.</p>
+                `;
+                return; // Interrompe o cálculo
+            } else {
+                salarioMinimoInput.classList.remove('border-red-500');
+            }
+
+            // Validação dos campos de renda
+            let allIncomeInputsValid = true;
+            rows.forEach(row => {
+                const incomeInputs = row.querySelectorAll('.income-input');
+                incomeInputs.forEach(input => {
+                    if (!input.checkValidity()) {
+                        allIncomeInputsValid = false;
+                        input.classList.add('border-red-500');
+                    } else {
+                        input.classList.remove('border-red-500');
+                    }
+                });
+            });
+
+            if (!allIncomeInputsValid) {
+                totalMembersSpan.textContent = currentMemberCount;
+                totalFamilyIncomeSpan.textContent = formatCurrency(0);
+                perCapitaIncomeSpan.textContent = formatCurrency(0);
+                resultMessageBox.classList.remove('hidden', 'result-deferred', 'result-undeferred');
+                resultMessageBox.classList.add('result-undeferred'); // Usa vermelho para mensagem de erro
+                resultMessageText.innerHTML = `
+                    <p class="text-xl">ATENÇÃO!</p>
+                    <p class="mt-2 text-sm">Por favor, preencha todos os campos de renda com valores válidos e positivos.</p>
+                `;
+                return; // Interrompe o cálculo
+            }
+
+            // Se não houver membros, exibe uma mensagem específica
+            if (currentMemberCount === 0) {
+                totalMembersSpan.textContent = currentMemberCount;
+                totalFamilyIncomeSpan.textContent = formatCurrency(0);
+                perCapitaIncomeSpan.textContent = formatCurrency(0);
+                resultMessageBox.classList.remove('hidden', 'result-deferred', 'result-undeferred');
+                resultMessageBox.classList.add('result-undeferred'); // Usa vermelho para mensagem de erro
+                resultMessageText.innerHTML = `
+                    <p class="text-xl">ATENÇÃO!</p>
+                    <p class="mt-2 text-sm">Adicione pelo menos um membro da família para realizar a simulação.</p>
+                `;
+                return; // Interrompe o cálculo
+            }
+
+            // Procede com o cálculo se todos os inputs são válidos e membros existem
+            rows.forEach(row => {
+                let sumIncomeMember = 0;
+                // Itera sobre as células de renda dos 3 meses (agora são as colunas 3, 4, 5)
+                for (let i = 2; i <= 4; i++) { // Índices das colunas de renda no HTML (0-based)
+                    const monthCell = row.querySelector(`td:nth-child(${i + 1})`); // +1 porque nth-child é 1-based
+                    const monthIncomeInputs = monthCell.querySelectorAll('.income-input');
+                    let sumMonthIncome = 0;
+                    monthIncomeInputs.forEach(input => {
+                        const value = parseFloat(input.value) || 0;
+                        sumMonthIncome += value;
+                    });
+                    sumIncomeMember += sumMonthIncome;
+                }
+
+                const averageIncome = sumIncomeMember / 3; // Calcula a média dos 3 meses para o membro
+                totalFamilyIncome += averageIncome;
+
+                // Atualiza a célula da média de renda na linha (agora é a 6ª coluna)
+                const averageIncomeCell = row.querySelector('td:nth-child(6)');
+                averageIncomeCell.textContent = formatCurrency(averageIncome);
+            });
+
+            const perCapitaIncome = totalFamilyIncome / currentMemberCount;
+
+            // Atualiza os spans de resumo
+            totalMembersSpan.textContent = currentMemberCount;
+            totalFamilyIncomeSpan.textContent = formatCurrency(totalFamilyIncome);
+            perCapitaIncomeSpan.textContent = formatCurrency(perCapitaIncome);
+
+            // Exibe a mensagem de resultado
+            displayResult(perCapitaIncome, currentSalarioMinimo);
+        }
+
+        /**
+         * Exibe a mensagem de DEFERIDO ou INDEFERIDO com base na renda per capita.
+         * @param {number} perCapitaIncome - A renda per capita calculada.
+         * @param {number} salarioMinimo - O valor do salário mínimo de referência.
+         */
+        function displayResult(perCapitaIncome, salarioMinimo) {
+            resultMessageBox.classList.remove('hidden', 'result-deferred', 'result-undeferred');
+
+            if (perCapitaIncome > salarioMinimo) {
+                resultMessageBox.classList.add('result-undeferred');
+                resultMessageText.innerHTML = `
+                    <p class="text-xl">Renda Simulada acima do limite</p>
+                    <p class="mt-2 text-sm">
+                        Com base nas informações fornecidas, sua renda per capita pode estar acima do limite estabelecido para a cota de baixa renda.
+                        Recomendamos que você revise cuidadosamente todos os dados inseridos, incluindo a inclusão de todos os membros da família e a exatidão dos valores de renda.
+                        Lembre-se: este é apenas um simulador. Para informações oficiais e detalhadas, consulte sempre o edital do seu processo seletivo. A análise final da sua situação será realizada por uma comissão especializada da UFSC.
+                    </p>
+                `;
+            } else {
+                resultMessageBox.classList.add('result-deferred');
+                resultMessageText.innerHTML = `
+                    <p class="text-xl">Renda Simulada dentro do limite</p>
+                    <p class="mt-2 text-sm">
+                        Com base nas informações fornecidas, sua renda per capita pode estar dentro dos critérios para a cota de baixa renda.
+                        Para uma análise precisa, certifique-se de que todas as rendas (incluindo extras e movimentações bancárias) e todos os familiares foram informados corretamente.
+                        Lembre-se: este é apenas um simulador. Para informações oficiais e detalhadas, consulte sempre o edital do seu processo seletivo. A análise final da sua situação será realizada por uma comissão especializada da UFSC.
+                    </p>
+                `;
+            }
+
+            // Se não houver membros, oculta a mensagem (já tratado em calculateTotal, mas mantido para redundância)
+            if (familyMembersTableBody.querySelectorAll('tr').length === 0) {
+                resultMessageBox.classList.add('hidden');
+            }
+        }
+
+        /**
+         * Formata um número como moeda brasileira (R$).
+         * @param {number} value - O valor a ser formatado.
+         * @returns {string} O valor formatado como moeda.
+         */
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+            }).format(value);
+        }
+
+        /**
+         * Reinicia a simulação, limpando a tabela e os resultados.
+         */
+        function resetSimulation() {
+            familyMembersTableBody.innerHTML = ''; // Limpa todas as linhas
+            memberCount = 0; // Reseta o contador
+            addFamilyMemberRow(); // Adiciona uma linha inicial
+            salarioMinimoInput.value = ""; // Reseta o salário mínimo para vazio
+            calculateTotal(); // Recalcula tudo
+        }
+
+        // Event Listeners
+        addMemberButton.addEventListener('click', addFamilyMemberRow);
+        resetButton.addEventListener('click', resetSimulation); // Listener para o botão de reset
+        salarioMinimoInput.addEventListener('input', calculateTotal); // Recalcula ao mudar o salário mínimo
+
+        // Adiciona uma linha inicial ao carregar a página
+        document.addEventListener('DOMContentLoaded', () => {
+            addFamilyMemberRow();
+        });
+    </script>
+</body>
+</html>
